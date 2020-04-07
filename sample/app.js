@@ -1,12 +1,12 @@
-import { define, mixin, getMain } from "./mext.js";
+import { define, mixin, whenReady } from "../mext.js";
 
-getMain().then((Main) => {
+whenReady().then((Main) => {
   const main = new Main();
   console.log(`main instanceof Main: ${main instanceof Main}`);
 });
 
 // define Main.
-// The compiled Main class is the resolve value of `getMain` call.
+// The compiled Main class is the resolve value of `whenReady` call.
 define("Main", async ({ require }) => {
   const { add } = await require("utils");
   const C = await require("C");

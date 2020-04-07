@@ -1,4 +1,4 @@
-import { extend } from "./mext.js";
+import { extend } from "../mext.js";
 
 // `extend` only makes sense for class definitions and mixins.
 // It will not work for example with utils defined in app.js.

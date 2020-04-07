@@ -1,8 +1,8 @@
-const cache = Object.create(null);
-const definitionCBmap = Object.create(null);
-const mixinCBmap = Object.create(null);
+let cache = Object.create(null);
+let definitionCBmap = Object.create(null);
+let mixinCBmap = Object.create(null);
 
-function require(name) {
+export function require(name) {
   return new Promise(async (resolve) => {
     if (name in cache) {
       resolve(cache[name]);
@@ -50,10 +50,16 @@ export function extend(name, callback) {
   }
 }
 
-export function getMain() {
+export function whenReady() {
   return new Promise((resolve) => {
     window.addEventListener("DOMContentLoaded", async () => {
       resolve(await require("Main"));
     });
   });
+}
+
+export function reset() {
+  cache = Object.create(null);
+  definitionCBmap = Object.create(null);
+  mixinCBmap = Object.create(null);
 }
