@@ -268,4 +268,36 @@ describe("define", () => {
     });
     await require("Main");
   });
+
+  test("return a function that returns a class and make the class patchable", async () => {
+    define("Registry", async () => {
+      return function (name) {
+        if (name === "Field")
+          return class {
+            foo() {
+              return "foo";
+            }
+          };
+      };
+    });
+    define("Main", async ({ require }) => {
+      const Registry = await require("Registry");
+      // extract the class from registry and make it extensible
+      define("Field", async () => {
+        return Registry("Field");
+      });
+      // extend the newly defined class Field
+      extend("Field", async (_, Field) => {
+        return class extends Field {
+          foo() {
+            return super.foo() + "extended";
+          }
+        };
+      });
+      // get the promised class Field
+      const Field = await require("Field");
+      expect("fooextended").toEqual(new Field().foo());
+    });
+    await require("Main");
+  });
 });
