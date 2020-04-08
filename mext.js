@@ -3,28 +3,32 @@ let definitionCBmap = Object.create(null);
 let mixinCBmap = Object.create(null);
 
 export function require(name) {
-  return new Promise(async (resolve) => {
+  return new Promise(async (resolve, reject) => {
     if (name in cache) {
       resolve(cache[name]);
     } else {
-      if (name in definitionCBmap) {
-        const [firstCB, ...restCBs] = definitionCBmap[name];
-        const compiled = await restCBs.reduce(
-          async (acc, cb) => await cb({ require, mixWith }, await acc),
-          await firstCB({ require, mixWith })
-        );
-        cache[name] = compiled;
-        resolve(compiled);
-      } else if (name in mixinCBmap) {
-        const callbacks = mixinCBmap[name];
-        const compiledMixinCB = function (toExtend) {
-          return callbacks.reduce(
+      try {
+        if (name in definitionCBmap) {
+          const [firstCB, ...restCBs] = definitionCBmap[name];
+          const compiled = await restCBs.reduce(
             async (acc, cb) => await cb({ require, mixWith }, await acc),
-            toExtend
+            await firstCB({ require, mixWith })
           );
-        };
-        cache[name] = compiledMixinCB;
-        resolve(compiledMixinCB);
+          cache[name] = compiled;
+          resolve(compiled);
+        } else if (name in mixinCBmap) {
+          const callbacks = mixinCBmap[name];
+          const compiledMixinCB = function (toExtend) {
+            return callbacks.reduce(
+              async (acc, cb) => await cb({ require, mixWith }, await acc),
+              toExtend
+            );
+          };
+          cache[name] = compiledMixinCB;
+          resolve(compiledMixinCB);
+        }
+      } catch (error) {
+        reject(error);
       }
     }
   });
@@ -47,6 +51,8 @@ export function extend(name, callback) {
     definitionCBmap[name].push(callback);
   } else if (name in mixinCBmap) {
     mixinCBmap[name].push(callback);
+  } else {
+    throw new Error(`'${name}' is not yet defined.`);
   }
 }
 

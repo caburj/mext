@@ -210,4 +210,62 @@ describe("define", () => {
     expect(c.foo()).toEqual("A0A1A2B0B1C0C1");
     expect(d.foo()).toEqual("A0A1A2D0");
   });
+
+  test("define inside define", async () => {
+    define("X", async () => {
+      extend(
+        "A",
+        async (_, A) =>
+          class extends A {
+            get foo() {
+              return "extension -> " + super.foo;
+            }
+          }
+      );
+    });
+    define("Main", async ({ require }) => {
+      define("A", async () =>
+        class {
+          get foo() {
+            return "foo";
+          }
+        });
+      await require("X");
+      const A = await require("A");
+      expect(new A().foo).toEqual("extension -> foo");
+    });
+    await require("Main");
+  });
+
+  test("trying to extend before defining", async () => {
+    define("X", async () => {
+      extend(
+        "A",
+        async (_, A) =>
+          class extends A {
+            get bar() {
+              return "bar " + super.bar;
+            }
+          }
+      );
+    });
+    define("Main", async ({ require }) => {
+      // require("X") should reject because it tries to extend a class not
+      // yet defined.
+      await expect(require("X")).rejects.toThrow("'A' is not yet defined.");
+
+      // the correct order is to define A first then require X which contains
+      // the extension for A.
+      define("A", async () =>
+        class {
+          get bar() {
+            return "bar";
+          }
+        });
+      await require("X");
+      const A = await require("A");
+      expect(new A().bar).toEqual("bar bar");
+    });
+    await require("Main");
+  });
 });
