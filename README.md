@@ -2,15 +2,16 @@
 
 The goal of this project is to provide a way to extend a class in-place, more
 commonly known as monkey-patching. The main idea is to declare a class using
-`define` and declare its extensions/patches using `extend`. With this series of
-declaration, the compiled class (containing the base and its extensions) is
-'promised' thru `require`. Look at the following for simple illustration:
+`defclass` and declare its extensions/patches using `extend`. With this series
+of declaration, the compiled class (containing the base and its extensions) is
+'promised' thru `compile`. Look at the following for simple illustration:
 
 ```js
-import { define, extend, require } from './mext.js'
+// app.js
+import { defclass, extend } from './mext.js'
 
 // define class Foo
-define('Foo', async() => {
+const FooDef = defclass(async() => {
   return class {
     get value() {
       return 'foo'
@@ -19,9 +20,9 @@ define('Foo', async() => {
 });
 
 // extend class Foo
-// The second argument of the callback is the class to be extended.
-extend('Foo', async(_, Foo) => {
-  return class extends Foo {
+// The argument of the callback is the compiled class to be extended.
+extend(FooDef, async(CompiledFoo) => {
+  return class extends CompiledFoo {
     get value() {
       return 'foo1 -> ' + super.value;
     }
@@ -29,8 +30,9 @@ extend('Foo', async(_, Foo) => {
 })
 
 // It is now promised to have a class Foo in the registry that is extended.
-// We access this class thru `require`.
-require('Foo').then(Foo => {
+// We access this class thru `compile` of the definition which returns a
+// promise that resolve to the compiled class.
+FooDef.compile().then(Foo => {
   const foo = new Foo();
   console.log(foo.value); // logs 'foo1 -> foo'
 })
@@ -40,10 +42,12 @@ If we want to define a class that extends another class, for instance, we want
 to create Bar derived from Foo declared above, we can to the following:
 
 ```js
-// we ask the 'promised' class Foo thru require, then return a class definition
-// that extends it.
-define('Bar', async({ require }) => {
-  const Foo = await require('Foo');
+// app.js continued
+
+// we ask the 'promised' class Foo by compiling the definition, then return a
+// class definition that extends it.
+const BarDef = defclass(async() => {
+  const Foo = await FooDef.compile();
   return class extends Foo {
     get value() {
       return 'bar -> ' + super.value;
@@ -55,7 +59,7 @@ define('Bar', async({ require }) => {
 });
 
 // we can also extend Bar
-extend('Bar', async(_, Bar) => {
+extend(BarDef, async(Bar) => {
   return class extends Bar {
     get value() {
       return 'bar1 -> ' + super.value;
@@ -68,25 +72,30 @@ extend('Bar', async(_, Bar) => {
 
 // if we say |Bar| is the final form of class Bar, the inheritance chain can be
 // visualize as so: |Bar| => bar1 -> bar -> foo1 -> foo
-require('Bar').then(Bar => {
+BarDef.compile().then(Bar => {
   const bar = new Bar();
   console.log(bar.value); // logs 'bar1 -> bar -> foo1 -> foo'
   console.log(bar.test()); // logs 'test1 -> test'
 })
 ```
 
-## class Main
+## whenReady
 
-Normally, for an app, there is a single entry point. `mext` assume it to be the
+When all js files are loaded, that is the time that we can start asking for the
+'promised' classes from class definitions. The common practice is to have an
+entry point which is run when the dom is ready, that entry point is normally the
 class Main.
 
 ```js
+// app.js continued
+
 import { define, extend, whenReady } from './mext.js';
 
-define('Main', async({require}) => {
+// export so that it can be used from other file or it can be extended.
+export const MainDef = defclass(async() => {
   // class Bar is defined above.
-  const Bar = await require('Bar');
-  const { add } = await require('utils');
+  const Bar = await BarDef.compile();
+  const { add } = await utilsDef.compile();
   return class {
     constructor() {
       this.bar = new Bar();
@@ -100,13 +109,13 @@ define('Main', async({require}) => {
 
 // define utils. Note that it is an instance of class Utils.
 // We can think of this as a singleton.
-define('utils', async({require}) => {
-  const Utils = await require('Utils');
+const utilsDef = defmodule(async() => {
+  const Utils = await UtilsDef.compile();
   return new Utils();
 })
 
 // define class Utils to have add method.
-define('Utils', async() => {
+export const UtilDef = defclass(async() => {
   return class {
     add(a, b) {
       return a + b;
@@ -114,8 +123,9 @@ define('Utils', async() => {
   }
 })
 
-// whenReady call returns a promise that resolves to class Main
-whenReady().then(Main => {
+// whenReady is resolved when DOMContentLoaded is triggered.
+whenReady().then(async () => {
+  const Main = await MainDef.compile();
   const main = new Main(); // logs '2'
   main.start(); // logs 'bar1 -> bar -> foo1 -> foo'
 })
@@ -129,10 +139,13 @@ the behavior of the app.
 
 ```js
 // extensions.js
+
 import { extend } from './mext.js';
+import { UtilsDef, MainDef } from './app.js';
 
 // alter add method of Utils
-extend('Utils', async(_, Utils) => {
+// export this extension if we allow extensions that relies on this extension
+export const ExtendedUtilsDef = extend(UtilsDef, async(Utils) => {
   return class extends Utils {
     add(a, b) {
       return super.add(a, b) + 1;
@@ -141,7 +154,7 @@ extend('Utils', async(_, Utils) => {
 });
 
 // alter start method of Main
-extend('Main', async(_, Utils) => {
+extend(MainDef, async(Main) => {
   return class extends Main {
     start() {
       super.start();
@@ -151,7 +164,7 @@ extend('Main', async(_, Utils) => {
 });
 ```
 
-When the above file is loaded together with the original file, instead of
+When the above file is loaded together with the `app.js` file, instead of
 logging the following:
 
 ```

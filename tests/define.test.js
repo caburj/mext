@@ -1,64 +1,63 @@
-import { define, extend, require, reset } from "../mext.js";
+import { defclass, defmodule, extend, reset } from "../mext.js";
 
 beforeEach(() => reset());
 
 describe("define", () => {
   test("define simple class", async () => {
     let x = 0;
-    define("Main", async () => {
+    const Main = await defclass(async () => {
       return class {
         constructor() {
           x += 1;
         }
       };
-    });
-    const Main = await require("Main");
+    }).compile();
     new Main();
     expect(x).toEqual(1);
   });
 
   test("extend class in-place", async () => {
-    define("Main", async () => {
+    let MainDef = defclass(async () => {
       return class {
         foo() {
           return "foo";
         }
       };
     });
-    extend("Main", async (_, Main) => {
+    extend(MainDef, async (Main) => {
       return class extends Main {
         foo() {
           return super.foo() + " extended";
         }
       };
     });
-    const Main = await require("Main");
+    const Main = await MainDef.compile();
     const main = new Main();
     expect(main.foo()).toEqual("foo extended");
   });
 
   test("define by extending other class", async () => {
-    define("M", async () => {
+    const MDef = defclass(async () => {
       return class {
         get value() {
           return 10;
         }
       };
     });
-    define("Main", async ({ require }) => {
-      const M = await require("M");
+    const MainDef = defclass(async () => {
+      const M = await MDef.compile();
       return class extends M {
         start() {
           return "start";
         }
       };
     });
-    const Main = await require("Main");
+    const Main = await MainDef.compile();
     const main = new Main();
     expect(main.value).toEqual(10);
     expect(main.start()).toEqual("start");
 
-    const M = await require("M");
+    const M = await MDef.compile();
     const m = new M();
     expect(m.value).toEqual(10);
     expect(m.start).toEqual(undefined);
@@ -67,42 +66,42 @@ describe("define", () => {
   test("define class based on other class that is extended in-place", async () => {
     // |B| => B -> |A|
     // |A| => A2 -> A1 -> A
-    define("A", async () => {
+    const ADef = defclass(async () => {
       return class {
         get name() {
           return "A";
         }
       };
     });
-    define("B", async ({ require }) => {
-      const A = await require("A");
+    const BDef = defclass(async () => {
+      const A = await ADef.compile();
       return class extends A {
         get name() {
           return "B -> " + super.name;
         }
       };
     });
-    extend("A", async (_, A) => {
+    extend(ADef, async (A) => {
       return class extends A {
         get name() {
           return "A1 -> " + super.name;
         }
       };
     });
-    extend("A", async (_, A) => {
+    extend(ADef, async (A) => {
       return class extends A {
         get name() {
           return "A2 -> " + super.name;
         }
       };
     });
-    const B = await require("B");
+    const B = await BDef.compile();
     const b = new B();
     expect(b.name).toEqual("B -> A2 -> A1 -> A");
   });
 
   test("define helper module", async () => {
-    define("utils", async () => {
+    const utilsDef = defmodule(async () => {
       return {
         add(a, b) {
           return a + b;
@@ -112,8 +111,8 @@ describe("define", () => {
         },
       };
     });
-    define("stupidUtils", async ({ require }) => {
-      const { add, mul } = await require("utils");
+    const stupidUtilsDef = defmodule(async () => {
+      const { add, mul } = await utilsDef.compile();
       return {
         add(a, b) {
           return add(a, b) + 1;
@@ -123,49 +122,49 @@ describe("define", () => {
         },
       };
     });
-    define("WrongMain", async ({ require }) => {
-      const { add, mul } = await require("stupidUtils");
+    const WrongMainDef = defclass(async () => {
+      const { add, mul } = await stupidUtilsDef.compile();
       expect(add(1, 1)).toEqual(3);
       expect(mul(1, 2)).toEqual(20);
     });
-    define("CorrectMain", async ({ require }) => {
-      const { add, mul } = await require("utils");
+    const CorrectMainDef = defclass(async () => {
+      const { add, mul } = await utilsDef.compile();
       expect(add(1, 1)).toEqual(2);
       expect(mul(3, 2)).toEqual(6);
     });
 
     // call only for their side-effects
-    await require("WrongMain");
-    await require("CorrectMain");
+    await WrongMainDef.compile();
+    await CorrectMainDef.compile();
   });
 
   test("extend multiple times", async () => {
     // definitions
-    define("A", async () => {
+    const ADef = defclass(async () => {
       return class {
         foo() {
           return "A0";
         }
       };
     });
-    define("B", async ({ require }) => {
-      const A = await require("A");
+    const BDef = defclass(async () => {
+      const A = await ADef.compile();
       return class extends A {
         foo() {
           return super.foo() + "B0";
         }
       };
     });
-    define("C", async ({ require }) => {
-      const B = await require("B");
+    const CDef = defclass(async () => {
+      const B = await BDef.compile();
       return class extends B {
         foo() {
           return super.foo() + "C0";
         }
       };
     });
-    define("D", async ({ require }) => {
-      const A = await require("A");
+    const DDef = defclass(async () => {
+      const A = await ADef.compile();
       return class extends A {
         foo() {
           return super.foo() + "D0";
@@ -173,104 +172,46 @@ describe("define", () => {
       };
     });
     // extensions
-    extend("A", async (_, A) => {
-      return class extends A {
+    extend(ADef, async (compiledA) => {
+      return class extends compiledA {
         foo() {
           return super.foo() + "A1";
         }
       };
     });
-    extend("A", async (_, A) => {
-      return class extends A {
+    extend(ADef, async (compiledA) => {
+      return class extends compiledA {
         foo() {
           return super.foo() + "A2";
         }
       };
     });
-    extend("C", async (_, C) => {
-      return class extends C {
+    extend(CDef, async (compileC) => {
+      return class extends compileC {
         foo() {
           return super.foo() + "C1";
         }
       };
     });
-    extend("B", async (_, B) => {
-      return class extends B {
+    extend(BDef, async (compiledB) => {
+      return class extends compiledB {
         foo() {
           return super.foo() + "B1";
         }
       };
     });
-    const a = new (await require("A"))();
-    const b = new (await require("B"))();
-    const c = new (await require("C"))();
-    const d = new (await require("D"))();
+    const a = new (await ADef.compile())();
+    const b = new (await BDef.compile())();
+    const c = new (await CDef.compile())();
+    const d = new (await DDef.compile())();
     expect(a.foo()).toEqual("A0A1A2");
     expect(b.foo()).toEqual("A0A1A2B0B1");
     expect(c.foo()).toEqual("A0A1A2B0B1C0C1");
     expect(d.foo()).toEqual("A0A1A2D0");
   });
 
-  test("define inside define", async () => {
-    define("X", async () => {
-      extend(
-        "A",
-        async (_, A) =>
-          class extends A {
-            get foo() {
-              return "extension -> " + super.foo;
-            }
-          }
-      );
-    });
-    define("Main", async ({ require }) => {
-      define("A", async () =>
-        class {
-          get foo() {
-            return "foo";
-          }
-        });
-      await require("X");
-      const A = await require("A");
-      expect(new A().foo).toEqual("extension -> foo");
-    });
-    await require("Main");
-  });
-
-  test("trying to extend before defining", async () => {
-    define("X", async () => {
-      extend(
-        "A",
-        async (_, A) =>
-          class extends A {
-            get bar() {
-              return "bar " + super.bar;
-            }
-          }
-      );
-    });
-    define("Main", async ({ require }) => {
-      // require("X") should reject because it tries to extend a class not
-      // yet defined.
-      await expect(require("X")).rejects.toThrow("'A' is not yet defined.");
-
-      // the correct order is to define A first then require X which contains
-      // the extension for A.
-      define("A", async () =>
-        class {
-          get bar() {
-            return "bar";
-          }
-        });
-      await require("X");
-      const A = await require("A");
-      expect(new A().bar).toEqual("bar bar");
-    });
-    await require("Main");
-  });
-
   test("return a function that returns a class and make the class patchable", async () => {
-    define("Registry", async () => {
+    const RegistryDef = defmodule(async () => {
       return function (name) {
         if (name === "Field")
           return class {
@@ -280,24 +221,24 @@ describe("define", () => {
           };
       };
     });
-    define("Main", async ({ require }) => {
-      const Registry = await require("Registry");
+    const MainDef = defclass(async () => {
+      const Registry = await RegistryDef.compile();
       // extract the class from registry and make it extensible
-      define("Field", async () => {
+      const FieldDef = defclass(async () => {
         return Registry("Field");
       });
       // extend the newly defined class Field
-      extend("Field", async (_, Field) => {
-        return class extends Field {
+      extend(FieldDef, async (CompiledField) => {
+        return class extends CompiledField {
           foo() {
             return super.foo() + "extended";
           }
         };
       });
       // get the promised class Field
-      const Field = await require("Field");
+      const Field = await FieldDef.compile();
       expect("fooextended").toEqual(new Field().foo());
     });
-    await require("Main");
+    await MainDef.compile();
   });
 });

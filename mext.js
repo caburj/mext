@@ -1,71 +1,121 @@
-let cache = Object.create(null);
-let definitionCBmap = Object.create(null);
-let mixinCBmap = Object.create(null);
+const classCache = new Map();
+const moduleCache = new Map();
+const mixinCache = new Map();
+const classExtCBsMap = new Map();
+const mixinExtCBsMap = new Map();
 
-export function require(name) {
-  return new Promise(async (resolve, reject) => {
-    if (name in cache) {
-      resolve(cache[name]);
-    } else {
-      try {
-        if (name in definitionCBmap) {
-          const [firstCB, ...restCBs] = definitionCBmap[name];
-          const compiled = await restCBs.reduce(
-            async (acc, cb) => await cb({ require, mixWith }, await acc),
-            await firstCB({ require, mixWith })
-          );
-          cache[name] = compiled;
-          resolve(compiled);
-        } else if (name in mixinCBmap) {
-          const callbacks = mixinCBmap[name];
-          const compiledMixinCB = function (toExtend) {
-            return callbacks.reduce(
-              async (acc, cb) => await cb({ require, mixWith }, await acc),
-              toExtend
-            );
-          };
-          cache[name] = compiledMixinCB;
-          resolve(compiledMixinCB);
-        }
-      } catch (error) {
-        reject(error);
-      }
-    }
-  });
-}
-
-function mixWith(toExtend, mixins) {
-  return mixins.reduce(async (acc, cb) => await cb(acc), toExtend);
-}
-
-export function define(name, callback) {
-  definitionCBmap[name] = [callback];
-}
-
-export function mixin(name, callback) {
-  mixinCBmap[name] = [callback];
-}
-
-export function extend(name, callback) {
-  if (name in definitionCBmap) {
-    definitionCBmap[name].push(callback);
-  } else if (name in mixinCBmap) {
-    mixinCBmap[name].push(callback);
-  } else {
-    throw new Error(`'${name}' is not yet defined.`);
+export function extend(onTopOf, callback) {
+  if (!(onTopOf instanceof Array)) {
+    onTopOf = [onTopOf];
   }
+  const [origin, ...rest] = onTopOf;
+  if (
+    rest.length === 0 ||
+    (rest.length && rest.every((def) => def.__original__ === origin.__original__))
+  ) {
+    // we just push on top of the callback array. The import mechanism of
+    // javascript takes care of the order of these callbacks.
+    // The ones that are added first are applied first in the inheritance
+    // chain, the last one is at the very top of the chain.
+    if (classExtCBsMap.get(origin.__original__)) {
+      classExtCBsMap.get(origin.__original__).push(callback);
+    } else if (mixinExtCBsMap.get(origin.__original__)) {
+      mixinExtCBsMap.get(origin.__original__).push(callback);
+    }
+  } else {
+    throw new Error("All dependencies should be extending the same class definition.");
+  }
+  return origin;
+}
+
+export function defclass(callback) {
+  const originalCB = callback;
+  classExtCBsMap.set(originalCB, [callback]);
+  return {
+    compile() {
+      return new Promise(async (resolve) => {
+        if (classCache.has(originalCB)) {
+          resolve(classCache.get(originalCB));
+        } else {
+          const extensionCBs = classExtCBsMap.get(originalCB);
+          const compiled = await extensionCBs.reduce(
+            async (acc, cb) => await cb(await acc),
+            await originalCB()
+          );
+          classCache.set(originalCB, compiled);
+          resolve(compiled);
+        }
+      });
+    },
+    get __original__() {
+      return originalCB;
+    },
+  };
+}
+
+export function defmodule(callback) {
+  return {
+    compile() {
+      return new Promise(async (resolve) => {
+        if (moduleCache.has(callback)) {
+          resolve(moduleCache.get(callback));
+        } else {
+          const compiled = await callback();
+          moduleCache.set(callback, compiled);
+          resolve(compiled);
+        }
+      });
+    },
+  };
+}
+
+export function defmixin(callback) {
+  const originalMixin = callback;
+  mixinExtCBsMap.set(originalMixin, [callback]);
+  return {
+    compile() {
+      return new Promise(async (resolve) => {
+        if (mixinCache.has(originalMixin)) {
+          resolve(mixinCache.get(originalMixin));
+        } else {
+          const extensionCBs = mixinExtCBsMap.get(originalMixin);
+          const compiled = function (toExtend) {
+            return extensionCBs.reduce(async (acc, cb) => await cb(await acc), toExtend);
+          };
+          mixinCache.set(originalMixin, compiled);
+          resolve(compiled);
+        }
+      });
+    },
+    get __original__() {
+      return originalMixin;
+    },
+  };
+}
+
+export function mix(compiledClass) {
+  return {
+    with(mixins) {
+      if (!(mixins instanceof Array)) {
+        mixins = [mixins];
+      }
+      return mixins.reduce(async (acc, cb) => cb(acc), compiledClass);
+    },
+  };
 }
 
 export function whenReady() {
   return new Promise((resolve) => {
     window.addEventListener("DOMContentLoaded", async () => {
-      resolve(await require("Main"));
+      resolve();
     });
   });
 }
 
 export function reset() {
-  cache = Object.create(null);
-  definitionCBmap = Object.create(null);
-  mixinCBmap = Object.create(null);
+  classCache.clear();
+  moduleCache.clear();
+  mixinCache.clear();
+  classExtCBsMap.clear();
+  mixinExtCBsMap.clear();
 }
