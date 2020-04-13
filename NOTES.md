@@ -37,3 +37,9 @@ This is impossible if not too complex to implement. Simple solution is to test
 without loading other modules and install only the dependencies. There will be
 separation between `all-modules-installed` and `only-this-module-installed`
 tests.
+
+**Adding types**
+
+If we typed `compile` such that it has a type of the returned class, we can then
+have a typed version of mext.
+- this appears to be not impossible but it will be difficult.
