@@ -1,6 +1,6 @@
 import { defclass, whenReady } from "../../mext.js";
 
-export const MainDef = defclass(async () => {
+export const MainDef = defclass(() => {
   return class {
     operations = {};
     registerOperation(operation) {
@@ -18,8 +18,8 @@ export const MainDef = defclass(async () => {
   };
 });
 
-whenReady().then(async () => {
-  const Main = await MainDef.compile();
+whenReady().then(() => {
+  const Main = MainDef.compile();
   const main = new Main();
   main.registerOperations();
   main.start();

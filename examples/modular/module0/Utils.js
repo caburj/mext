@@ -1,6 +1,6 @@
 import { defclass } from "../../../mext.js";
 
-export default defclass(async () => {
+export default defclass(() => {
   return class {
     add(a, b) {
       return a + b;

@@ -12,7 +12,7 @@ of declaration, the compiled class (containing the base and its extensions) is
 import { defclass, extend } from './mext.js'
 
 // define class Foo
-export const FooDef = defclass(async() => {
+export const FooDef = defclass(() => {
   return class {
     get value() {
       return 'foo'
@@ -22,7 +22,7 @@ export const FooDef = defclass(async() => {
 
 // extend class Foo
 // The argument of the callback is the compiled class to be extended.
-const FooExt1 = extend(FooDef, async(CompiledFoo) => {
+const FooExt1 = extend(FooDef, (CompiledFoo) => {
   return class extends CompiledFoo {
     get value() {
       return 'foo1 -> ' + super.value;
@@ -56,8 +56,8 @@ want to create `Bar` derived from `Foo` declared above, we can to the following:
 
 // we ask the 'promised' class Foo by compiling the definition, then return a
 // class definition that extends it.
-export const BarDef = defclass(async() => {
-  const Foo = await FooDef.compile();
+export const BarDef = defclass(() => {
+  const Foo = FooDef.compile();
   return class extends Foo {
     get value() {
       return 'bar -> ' + super.value;
@@ -69,7 +69,7 @@ export const BarDef = defclass(async() => {
 });
 
 // we can also extend Bar
-const BarExt1 = extend(BarDef, async(Bar) => {
+const BarExt1 = extend(BarDef, (Bar) => {
   return class extends Bar {
     get value() {
       return 'bar1 -> ' + super.value;
@@ -113,10 +113,10 @@ entry point which is run when the dom is ready, that entry point is normally the
 import { define, extend, whenReady } from './mext.js';
 
 // export so that it can be used from other file or it can be extended.
-export const MainDef = defclass(async() => {
+export const MainDef = defclass(() => {
   // class Bar is defined above.
-  const Bar = await BarDef.compile();
-  const { add } = await utilsDef.compile();
+  const Bar = BarDef.compile();
+  const { add } = utilsDef.compile();
   return class {
     constructor() {
       this.bar = new Bar();
@@ -130,13 +130,13 @@ export const MainDef = defclass(async() => {
 
 // define utils. Note that it is an instance of class Utils.
 // We can think of this as a singleton.
-const utilsDef = defmodule(async() => {
-  const Utils = await UtilsDef.compile();
+const utilsDef = defmodule(() => {
+  const Utils = UtilsDef.compile();
   return new Utils();
 })
 
 // define class Utils to have add method.
-export const UtilsDef = defclass(async() => {
+export const UtilsDef = defclass(() => {
   return class {
     add(a, b) {
       return a + b;
@@ -145,8 +145,8 @@ export const UtilsDef = defclass(async() => {
 })
 
 // whenReady is resolved when DOMContentLoaded is triggered.
-whenReady().then(async () => {
-  const Main = await MainDef.compile();
+whenReady().then(() => {
+  const Main = MainDef.compile();
   const main = new Main(); // logs '2'
   main.start(); // logs 'bar1 -> bar -> foo1 -> foo'
 })
@@ -166,7 +166,7 @@ import { UtilsDef, MainDef } from './app.js';
 
 // alter add method of Utils
 // export this extension if we allow extensions that relies on this extension
-export const UtilsExt1 = extend(UtilsDef, async(Utils) => {
+export const UtilsExt1 = extend(UtilsDef, (Utils) => {
   return class extends Utils {
     add(a, b) {
       return super.add(a, b) + 1;
@@ -175,7 +175,7 @@ export const UtilsExt1 = extend(UtilsDef, async(Utils) => {
 });
 
 // alter start method of Main
-const MainExt1 = extend(MainDef, async(Main) => {
+const MainExt1 = extend(MainDef, (Main) => {
   return class extends Main {
     start() {
       super.start();
@@ -213,7 +213,7 @@ Loading the listings above will generate the following classes:
 And if we loaded the following listing:
 
 ```js
-const FooExt2 = extend(FooDef, async(Foo) => {
+const FooExt2 = extend(FooDef, (Foo) => {
   return class extends Foo {};
 });
 ```

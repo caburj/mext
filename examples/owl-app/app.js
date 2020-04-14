@@ -1,6 +1,6 @@
 import { defclass, whenReady } from "../../mext.js";
 
-export const AppDef = defclass(async () => {
+export const AppDef = defclass(() => {
   return class extends owl.Component {
     static template = owl.tags.xml/* html */ `
       <div t-on-click="onClick">
@@ -19,8 +19,8 @@ export const AppDef = defclass(async () => {
   };
 });
 
-whenReady().then(async () => {
-  const App = await AppDef.compile();
+whenReady().then(() => {
+  const App = AppDef.compile();
   const app = new App();
   app.mount(main);
 });

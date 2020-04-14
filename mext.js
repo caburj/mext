@@ -33,19 +33,14 @@ export function defclass(callback) {
   classExtCBsMap.set(originalCB, [callback]);
   return {
     compile() {
-      return new Promise(async (resolve) => {
-        if (classCache.has(originalCB)) {
-          resolve(classCache.get(originalCB));
-        } else {
-          const extensionCBs = classExtCBsMap.get(originalCB);
-          const compiled = await extensionCBs.reduce(
-            async (acc, cb) => await cb(await acc),
-            await originalCB()
-          );
-          classCache.set(originalCB, compiled);
-          resolve(compiled);
-        }
-      });
+      if (classCache.has(originalCB)) {
+        return classCache.get(originalCB);
+      } else {
+        const extensionCBs = classExtCBsMap.get(originalCB);
+        const compiled = extensionCBs.reduce((acc, cb) => cb(acc), originalCB());
+        classCache.set(originalCB, compiled);
+        return compiled;
+      }
     },
     get __original__() {
       return originalCB;
@@ -56,15 +51,13 @@ export function defclass(callback) {
 export function defmodule(callback) {
   return {
     compile() {
-      return new Promise(async (resolve) => {
-        if (moduleCache.has(callback)) {
-          resolve(moduleCache.get(callback));
-        } else {
-          const compiled = await callback();
-          moduleCache.set(callback, compiled);
-          resolve(compiled);
-        }
-      });
+      if (moduleCache.has(callback)) {
+        return moduleCache.get(callback);
+      } else {
+        const compiled = callback();
+        moduleCache.set(callback, compiled);
+        return compiled;
+      }
     },
   };
 }
@@ -74,18 +67,16 @@ export function defmixin(callback) {
   mixinExtCBsMap.set(originalMixin, [callback]);
   return {
     compile() {
-      return new Promise(async (resolve) => {
-        if (mixinCache.has(originalMixin)) {
-          resolve(mixinCache.get(originalMixin));
-        } else {
-          const extensionCBs = mixinExtCBsMap.get(originalMixin);
-          const compiled = function (toExtend) {
-            return extensionCBs.reduce(async (acc, cb) => await cb(await acc), toExtend);
-          };
-          mixinCache.set(originalMixin, compiled);
-          resolve(compiled);
-        }
-      });
+      if (mixinCache.has(originalMixin)) {
+        return mixinCache.get(originalMixin);
+      } else {
+        const extensionCBs = mixinExtCBsMap.get(originalMixin);
+        const compiled = function (toExtend) {
+          return extensionCBs.reduce((acc, cb) => cb(acc), toExtend);
+        };
+        mixinCache.set(originalMixin, compiled);
+        return compiled;
+      }
     },
     get __original__() {
       return originalMixin;
@@ -99,14 +90,14 @@ export function mix(compiledClass) {
       if (!(mixins instanceof Array)) {
         mixins = [mixins];
       }
-      return mixins.reduce(async (acc, cb) => cb(acc), compiledClass);
+      return mixins.reduce((acc, cb) => cb(acc), compiledClass);
     },
   };
 }
 
 export function whenReady() {
   return new Promise((resolve) => {
-    window.addEventListener("DOMContentLoaded", async () => {
+    window.addEventListener("DOMContentLoaded", () => {
       resolve();
     });
   });

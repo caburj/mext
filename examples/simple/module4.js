@@ -4,7 +4,7 @@ import { M3Foo, M3Helper } from "./module3.js";
 import { helper } from "./module1.js";
 import { Mixin } from "./module0.js";
 
-export const M4Main = extend(M2Main, async (Main) => {
+export const M4Main = extend(M2Main, (Main) => {
   return class extends Main {
     constructor() {
       super();
@@ -13,8 +13,8 @@ export const M4Main = extend(M2Main, async (Main) => {
   };
 });
 
-export const M4Foo = extend(M3Foo, async (Foo) => {
-  const { add } = await helper.compile();
+export const M4Foo = extend(M3Foo, (Foo) => {
+  const { add } = helper.compile();
   return class extends Foo {
     foo() {
       super.foo();
@@ -23,7 +23,7 @@ export const M4Foo = extend(M3Foo, async (Foo) => {
   };
 });
 
-export const M4Helper = extend(M3Helper, async (Helper) => {
+export const M4Helper = extend(M3Helper, (Helper) => {
   return class extends Helper {
     add(a, b) {
       return a + b;
@@ -31,7 +31,7 @@ export const M4Helper = extend(M3Helper, async (Helper) => {
   };
 });
 
-export const M4Mixn = extend(Mixin, async (Mixin) => {
+export const M4Mixn = extend(Mixin, (Mixin) => {
   return class extends Mixin {
     mixinMethod() {
       super.mixinMethod();

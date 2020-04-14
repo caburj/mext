@@ -1,7 +1,7 @@
 import { AppDef } from "./app.js";
 import { extend } from "../../mext.js";
 
-export const Ext1AppDef = extend(AppDef, async (CompiledApp) => {
+export const Ext1AppDef = extend(AppDef, (CompiledApp) => {
   return class extends CompiledApp {
     static template = owl.tags.xml/* html */ `
       <div>

@@ -8,7 +8,7 @@ import { AddDef } from "./plugin.js";
  * doesn't allow 1 as the first input of adding.
  */
 
-export const SubtractDef = defclass(async () => {
+export const SubtractDef = defclass(() => {
   return class {
     name = "sub";
     apply(a, b) {
@@ -18,7 +18,7 @@ export const SubtractDef = defclass(async () => {
   };
 });
 
-export const DivideDef = defclass(async () => {
+export const DivideDef = defclass(() => {
   return class {
     name = "div";
     apply(a, b) {
@@ -30,9 +30,9 @@ export const DivideDef = defclass(async () => {
 });
 
 // Extend Main to register the newly created operations.
-extend(MainDef, async (Main) => {
-  const Subtract = await SubtractDef.compile();
-  const Divide = await DivideDef.compile();
+extend(MainDef, (Main) => {
+  const Subtract = SubtractDef.compile();
+  const Divide = DivideDef.compile();
   return class extends Main {
     registerOperations() {
       super.registerOperations();
@@ -60,7 +60,7 @@ extend(MainDef, async (Main) => {
 });
 
 // Extend Add such that if 1 is given as first argument, throw an error.
-extend(AddDef, async (Add) => {
+extend(AddDef, (Add) => {
   return class extends Add {
     apply(a) {
       if (a === 1) {

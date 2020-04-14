@@ -1,7 +1,7 @@
 import { MainDef } from "./core.js";
 import { defclass, extend } from "../../mext.js";
 
-export const AddDef = defclass(async () => {
+export const AddDef = defclass(() => {
   return class {
     name = "add";
     apply(...args) {
@@ -10,7 +10,7 @@ export const AddDef = defclass(async () => {
   };
 });
 
-export const MultiplyDef = defclass(async () => {
+export const MultiplyDef = defclass(() => {
   return class {
     name = "mul";
     apply(...args) {
@@ -19,9 +19,9 @@ export const MultiplyDef = defclass(async () => {
   };
 });
 
-extend(MainDef, async (Main) => {
-  const Add = await AddDef.compile();
-  const Multiply = await MultiplyDef.compile();
+extend(MainDef, (Main) => {
+  const Add = AddDef.compile();
+  const Multiply = MultiplyDef.compile();
   return class extends Main {
     registerOperations() {
       super.registerOperations();

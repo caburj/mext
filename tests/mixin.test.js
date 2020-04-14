@@ -3,35 +3,35 @@ import { extend, reset, defclass, defmixin, mix } from "../mext.js";
 beforeEach(() => reset());
 
 describe("mixin", () => {
-  test("simple mixin", async () => {
+  test("simple mixin", () => {
     class X {
       foo() {
         return "foo";
       }
     }
-    const Adef = defclass(async () => {
-      const SimpleMixin = await SimpleMixinDef.compile();
-      return class extends (await mix(X).with([SimpleMixin])) {
+    const Adef = defclass(() => {
+      const SimpleMixin = SimpleMixinDef.compile();
+      return class extends mix(X).with([SimpleMixin]) {
         foo() {
           return "foo " + super.foo();
         }
       };
     });
-    const SimpleMixinDef = defmixin(async (toExtend) => {
+    const SimpleMixinDef = defmixin((toExtend) => {
       return class extends toExtend {
         bar() {
           return "mixin bar";
         }
       };
     });
-    const A = await Adef.compile();
+    const A = Adef.compile();
     const a = new A();
     expect(a.foo()).toEqual("foo foo");
     expect(a.bar()).toEqual("mixin bar");
   });
 
-  test("extended mixin", async () => {
-    const ADef = defclass(async () => {
+  test("extended mixin", () => {
+    const ADef = defclass(() => {
       return class {
         constructor(foo) {
           this._foo = foo;
@@ -41,23 +41,23 @@ describe("mixin", () => {
         }
       };
     });
-    const BDef = defclass(async () => {
-      const A = await ADef.compile();
-      const Mixin = await MixinDef.compile();
-      return class extends (await mix(A).with([Mixin])) {
+    const BDef = defclass(() => {
+      const A = ADef.compile();
+      const Mixin = MixinDef.compile();
+      return class extends mix(A).with([Mixin]) {
         get foo() {
           return `B ${super.foo}`;
         }
       };
     });
-    const MixinDef = defmixin(async (toExtend) => {
+    const MixinDef = defmixin((toExtend) => {
       return class extends toExtend {
         bar() {
           return "bar";
         }
       };
     });
-    extend(MixinDef, async (toExtend) => {
+    extend(MixinDef, (toExtend) => {
       return class extends toExtend {
         bar() {
           return `extended ${super.bar()}`;
@@ -65,19 +65,19 @@ describe("mixin", () => {
       };
     });
     // mixin should have no effect on A
-    const A = await ADef.compile();
+    const A = ADef.compile();
     const a = new A("x");
     expect(a.foo).toEqual("x");
     expect(a.bar).toEqual(undefined);
     // mixin applied when defining B
-    const B = await BDef.compile();
+    const B = BDef.compile();
     const b = new B("y");
     expect(b.foo).toEqual("B y");
     expect(b.bar()).toEqual("extended bar");
   });
 
-  test("multiple mixins", async () => {
-    const Adef = defclass(async () => {
+  test("multiple mixins", () => {
+    const Adef = defclass(() => {
       return class {
         foo() {
           return "foo";
@@ -85,31 +85,31 @@ describe("mixin", () => {
       };
     });
     // |B| => B -> OtherMixin -> |Mixin| -> |A|
-    const BDef = defclass(async () => {
-      const A = await Adef.compile();
-      const Mixin = await MixinDef.compile();
-      const OtherMixin = await OtherMixinDef.compile();
-      return class extends (await mix(A).with([Mixin, OtherMixin])) {
+    const BDef = defclass(() => {
+      const A = Adef.compile();
+      const Mixin = MixinDef.compile();
+      const OtherMixin = OtherMixinDef.compile();
+      return class extends mix(A).with([Mixin, OtherMixin]) {
         foo() {
           return `B ${super.foo()}`;
         }
       };
     });
-    const MixinDef = defmixin(async (toExtend) => {
+    const MixinDef = defmixin((toExtend) => {
       return class extends toExtend {
         bar() {
           return "bar";
         }
       };
     });
-    extend(MixinDef, async (toExtend) => {
+    extend(MixinDef, (toExtend) => {
       return class extends toExtend {
         bar() {
           return `extended ${super.bar()}`;
         }
       };
     });
-    const OtherMixinDef = defmixin(async (toExtend) => {
+    const OtherMixinDef = defmixin((toExtend) => {
       return class extends toExtend {
         baz() {
           return "baz";
@@ -117,13 +117,13 @@ describe("mixin", () => {
       };
     });
     // mixin should have no effect on A
-    const A = await Adef.compile();
+    const A = Adef.compile();
     const a = new A();
     expect(a.foo()).toEqual("foo");
     expect(a.bar).toEqual(undefined);
     expect(a.baz).toEqual(undefined);
     // mixin applied when defining B
-    const B = await BDef.compile();
+    const B = BDef.compile();
     const b = new B();
     expect(b.foo()).toEqual("B foo");
     expect(b.bar()).toEqual("extended bar");

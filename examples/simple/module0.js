@@ -1,18 +1,17 @@
 import { defclass, whenReady, mix, defmixin } from "../../mext.js";
 
-export const Mixin = defmixin(
-  async (toExtend) =>
-    class extends toExtend {
-      mixinMethod() {
-        console.log("Mixin Method");
-      }
+export const Mixin = defmixin((toExtend) => {
+  return class extends toExtend {
+    mixinMethod() {
+      console.log("Mixin Method");
     }
-);
+  };
+});
 
-export const Main = defclass(async () => {
-  const CompiledFoo = await Foo.compile();
-  const CompiledMixin = await Mixin.compile();
-  return await mix(
+export const Main = defclass(() => {
+  const CompiledFoo = Foo.compile();
+  const CompiledMixin = Mixin.compile();
+  return mix(
     class {
       constructor() {
         console.log("Main");
@@ -26,7 +25,7 @@ export const Main = defclass(async () => {
   ).with(CompiledMixin);
 });
 
-export const Foo = defclass(async () => {
+export const Foo = defclass(() => {
   return class {
     foo() {
       console.log("foo 0");
@@ -34,8 +33,8 @@ export const Foo = defclass(async () => {
   };
 });
 
-whenReady().then(async () => {
-  const CompiledMain = await Main.compile();
+whenReady().then(() => {
+  const CompiledMain = Main.compile();
   const main = new CompiledMain();
   main.start();
 });

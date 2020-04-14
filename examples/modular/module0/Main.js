@@ -1,8 +1,8 @@
 import { defclass } from "../../../mext.js";
 import Foo from "./Foo.js";
 
-export default defclass(async () => {
-  const CompiledFoo = await Foo.compile();
+export default defclass(() => {
+  const CompiledFoo = Foo.compile();
   return class {
     constructor() {
       console.log("Main");
