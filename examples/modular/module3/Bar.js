@@ -1,9 +1,8 @@
 import { defclass } from "../../../mext.js";
-import FooDef from "../module1/Foo.js";
+import { Foo } from "../module1/index.js";
 
 export default defclass(() => {
-  const CompiledFoo = FooDef.compile();
-  return class extends CompiledFoo {
+  return class extends Foo.compile() {
     constructor() {
       super();
       console.log("Bar");

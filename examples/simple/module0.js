@@ -11,18 +11,17 @@ export const Mixin = defmixin((toExtend) => {
 export const Main = defclass(() => {
   const CompiledFoo = Foo.compile();
   const CompiledMixin = Mixin.compile();
-  return mix(
-    class {
-      constructor() {
-        console.log("Main");
-      }
-      start() {
-        this.foo = new CompiledFoo();
-        this.foo.foo();
-        this.mixinMethod();
-      }
+  return class extends mix(Object).with(CompiledMixin) {
+    constructor() {
+      super();
+      console.log("Main");
     }
-  ).with(CompiledMixin);
+    start() {
+      this.foo = new CompiledFoo();
+      this.foo.foo();
+      this.mixinMethod();
+    }
+  };
 });
 
 export const Foo = defclass(() => {

@@ -1,8 +1,8 @@
 import { extend } from "../../../mext.js";
-import UtilsDef from "../module2/Utils.js";
+import { Utils } from "../module2/index.js";
 
-export default extend(UtilsDef, (CompiledUtils) => {
-  return class extends CompiledUtils {
+export default extend(Utils, (x) => {
+  return class extends x {
     add(a, b) {
       return super.add(a, b) * 10000;
     }

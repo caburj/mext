@@ -1,8 +1,8 @@
 import { extend } from "../../../mext.js";
-import FooDef from "../module1/Foo.js";
+import { Foo } from "../module1/index.js";
 
-export default extend(FooDef, (CompiledFoo) => {
-  return class extends CompiledFoo {
+export default extend(Foo, (x) => {
+  return class extends x {
     constructor() {
       super();
       console.log("Module4Foo");

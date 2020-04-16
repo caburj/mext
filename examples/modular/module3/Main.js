@@ -1,10 +1,10 @@
 import { extend } from "../../../mext.js";
-import MainDef from "../module0/Main.js";
+import { Main } from "../module0/index.js";
 import BarDef from "./Bar.js";
 
-export default extend(MainDef, (Main) => {
+export default extend(Main, (x) => {
   const Bar = BarDef.compile();
-  return class extends Main {
+  return class extends x {
     constructor() {
       super();
       this.bar = new Bar();
