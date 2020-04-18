@@ -1,4 +1,12 @@
-import { defclass, defmodule, extend, reset } from "../mext.js";
+import {
+  defclass,
+  defmodule,
+  extend,
+  reset,
+  defmixin,
+  mix,
+  isInCache,
+} from "../mext.js";
 
 beforeEach(() => reset());
 
@@ -240,5 +248,327 @@ describe("define", () => {
       expect("fooextended").toEqual(new Field().foo());
     });
     MainDef.compile();
+  });
+
+  test("extend then remove/reapply extension", () => {
+    const ADef = defclass(() => {
+      return class {
+        get name() {
+          return "A";
+        }
+      };
+    });
+
+    const BDef = defclass(() => {
+      const A = ADef.compile();
+      return class extends A {
+        get name() {
+          return "B -> " + super.name;
+        }
+      };
+    });
+
+    const AExt1 = extend(ADef, (A) => {
+      return class extends A {
+        get name() {
+          return "A1 -> " + super.name;
+        }
+      };
+    });
+
+    const AExt2 = extend(ADef, (A) => {
+      return class extends A {
+        get name() {
+          return "A2 -> " + super.name;
+        }
+      };
+    });
+
+    let B = BDef.compile();
+    let b = new B();
+    expect(b.name).toEqual("B -> A2 -> A1 -> A");
+
+    AExt1.remove();
+    B = BDef.compile();
+    b = new B();
+    expect(b.name).toEqual("B -> A2 -> A");
+
+    AExt2.remove();
+    AExt1.reapply();
+    B = BDef.compile();
+    b = new B();
+    expect(b.name).toEqual("B -> A1 -> A");
+
+    const BExt1 = extend(BDef, (B) => {
+      return class extends B {
+        get name() {
+          return "B2 -> " + super.name;
+        }
+      };
+    });
+
+    B = BDef.compile();
+    b = new B();
+    expect(b.name).toEqual("B2 -> B -> A1 -> A");
+
+    AExt1.remove();
+    BExt1.remove();
+    B = BDef.compile();
+    b = new B();
+    expect(b.name).toEqual("B -> A");
+
+    AExt1.reapply();
+    AExt2.reapply();
+    BExt1.reapply();
+    B = BDef.compile();
+    b = new B();
+    expect(b.name).toEqual("B2 -> B -> A2 -> A1 -> A");
+  });
+
+  test("registry cache on complex inheritance tree", () => {
+    /**
+     * Main 🠖 Foo 🠖 Mixin2
+     *   🠗      🠗
+     *  XXX    Bar 🠔 Baz 🠔 YYY (YYY called by Main)
+     *   🠗      🠗
+     * Mixin  Component
+     */
+
+    const MixinDef = defmixin((toExtend) => {
+      return class extends toExtend {
+        get val() {
+          return "Mixin " + super.val;
+        }
+      };
+    });
+
+    const Mixin2Def = defmixin((toExtend) => {
+      return class extends toExtend {
+        get val() {
+          return "Mixin2 " + super.val;
+        }
+      };
+    });
+
+    const ComponentDef = defclass(() => {
+      return class {
+        get val() {
+          return "Component";
+        }
+      };
+    });
+
+    const XXXDef = defclass(() => {
+      const XXX = class {
+        get val() {
+          return "XXX";
+        }
+      };
+      return mix(XXX).with([MixinDef.compile()]);
+    });
+
+    const BarDef = defclass(() => {
+      return class extends ComponentDef.compile() {
+        get val() {
+          return "Bar " + super.val;
+        }
+      };
+    });
+
+    const BazDef = defclass(() => {
+      return class extends BarDef.compile() {
+        get val() {
+          return "Baz " + super.val;
+        }
+      };
+    });
+
+    const YYYDef = defclass(() => {
+      return class extends BazDef.compile() {
+        get val() {
+          return "YYY " + super.val;
+        }
+      };
+    });
+
+    const FooDef = defclass(() => {
+      return class extends mix(BarDef.compile()).with([Mixin2Def.compile()]) {
+        get val() {
+          return "Foo " + super.val;
+        }
+      };
+    });
+
+    const MainDef = defclass(() => {
+      const Foo = FooDef.compile();
+      const XXX = XXXDef.compile();
+      const YYY = YYYDef.compile();
+      return class {
+        constructor() {
+          this._foo = new Foo();
+          this._xxx = new XXX();
+          this._yyy = new YYY();
+        }
+        get foo() {
+          return this._foo.val;
+        }
+        get xxx() {
+          return this._xxx.val;
+        }
+        get yyy() {
+          return this._yyy.val;
+        }
+        get val() {
+          return "Main";
+        }
+      };
+    });
+
+    const BarExt = extend(BarDef, (Bar) => {
+      return class extends Bar {
+        get val() {
+          return "Bar1 " + super.val;
+        }
+      };
+    });
+
+    let foo = FooDef.create();
+    let baz = BazDef.create();
+    expect(foo.val).toEqual("Foo Mixin2 Bar1 Bar Component");
+    expect(baz.val).toEqual("Baz Bar1 Bar Component");
+
+    // check inheritance tree after compiling FooDef and BazDef
+    // They are compiled when create is called.
+    expect(FooDef.__parents__.size).toEqual(0);
+    expect(BazDef.__parents__.size).toEqual(0);
+    expect(Mixin2Def.__parents__.size).toEqual(1);
+    expect(ComponentDef.__parents__.size).toEqual(1);
+    expect(BarDef.__parents__.size).toEqual(2);
+    const barParents = [...BarDef.__parents__];
+    expect(barParents[0]).toEqual(FooDef);
+    expect(barParents[1]).toEqual(BazDef);
+
+    BarExt.remove();
+
+    expect(isInCache(FooDef)).toEqual(false);
+    expect(isInCache(BazDef)).toEqual(false);
+    expect(isInCache(Mixin2Def)).toEqual(true);
+    expect(isInCache(ComponentDef)).toEqual(true);
+    expect(isInCache(BarDef)).toEqual(false);
+
+    BarExt.reapply();
+    let main = MainDef.create();
+    expect(main.foo).toEqual("Foo Mixin2 Bar1 Bar Component");
+    expect(main.xxx).toEqual("Mixin XXX");
+    expect(main.yyy).toEqual("YYY Baz Bar1 Bar Component");
+
+    const Mixin2Ext = extend(Mixin2Def, (toExtend) => {
+      return class extends toExtend {
+        get val() {
+          return "Mixin2Ext " + super.val;
+        }
+      };
+    });
+    // check which are in cache.
+    expect(isInCache(MainDef)).toEqual(false);
+    expect(isInCache(XXXDef)).toEqual(true);
+    expect(isInCache(MixinDef)).toEqual(true);
+    expect(isInCache(FooDef)).toEqual(false);
+    expect(isInCache(Mixin2Def)).toEqual(false);
+    expect(isInCache(BarDef)).toEqual(true);
+    expect(isInCache(BazDef)).toEqual(true);
+    expect(isInCache(YYYDef)).toEqual(true);
+    expect(isInCache(ComponentDef)).toEqual(true);
+
+    MainDef.compile(); // to cache again the classes
+
+    const ComponentExt = extend(ComponentDef, (Component) => {
+      return class extends Component {
+        get val() {
+          return "ComponentExt" + super.val;
+        }
+      };
+    });
+
+    const MixinExt = extend(MixinDef, (toExtend) => {
+      return class extends toExtend {
+        get val() {
+          return "MixinExt" + super.val;
+        }
+      };
+    });
+
+    // check cache after couple of extensions
+
+    expect(isInCache(MainDef)).toEqual(false);
+    expect(isInCache(XXXDef)).toEqual(false);
+    expect(isInCache(MixinDef)).toEqual(false);
+    expect(isInCache(FooDef)).toEqual(false);
+    expect(isInCache(Mixin2Def)).toEqual(true);
+    expect(isInCache(BarDef)).toEqual(false);
+    expect(isInCache(BazDef)).toEqual(false);
+    expect(isInCache(YYYDef)).toEqual(false);
+    expect(isInCache(ComponentDef)).toEqual(false);
+
+    MainDef.compile(); // to cache again the classes
+
+    // Extending Main should only invalidate Main's
+    const MainExt = extend(MainDef, (Main) => {
+      return class extends Main {
+        get val() {
+          return "MainExt " + super.val;
+        }
+      };
+    });
+
+    expect(isInCache(MainDef)).toEqual(false);
+    expect(isInCache(XXXDef)).toEqual(true);
+    expect(isInCache(MixinDef)).toEqual(true);
+    expect(isInCache(FooDef)).toEqual(true);
+    expect(isInCache(Mixin2Def)).toEqual(true);
+    expect(isInCache(BarDef)).toEqual(true);
+    expect(isInCache(BazDef)).toEqual(true);
+    expect(isInCache(YYYDef)).toEqual(true);
+    expect(isInCache(ComponentDef)).toEqual(true);
+
+    MainDef.compile(); // to cache again the classes
+
+    // what happens when ComponentExt is removed;
+    ComponentExt.remove();
+    expect(isInCache(MainDef)).toEqual(false);
+    expect(isInCache(XXXDef)).toEqual(true);
+    expect(isInCache(MixinDef)).toEqual(true);
+    expect(isInCache(FooDef)).toEqual(false);
+    expect(isInCache(Mixin2Def)).toEqual(true);
+    expect(isInCache(BarDef)).toEqual(false);
+    expect(isInCache(BazDef)).toEqual(false);
+    expect(isInCache(YYYDef)).toEqual(false);
+    expect(isInCache(ComponentDef)).toEqual(false);
+
+    MainDef.compile(); // to cache again the classes
+
+    // Let's remove the two mixin extensions and the Main extension
+    // what happens to cache then?
+    Mixin2Ext.remove();
+    MixinExt.remove();
+    MainExt.remove();
+    expect(isInCache(MainDef)).toEqual(false);
+    expect(isInCache(XXXDef)).toEqual(false);
+    expect(isInCache(MixinDef)).toEqual(false);
+    expect(isInCache(FooDef)).toEqual(false);
+    expect(isInCache(Mixin2Def)).toEqual(false);
+    expect(isInCache(BarDef)).toEqual(true);
+    expect(isInCache(BazDef)).toEqual(true);
+    expect(isInCache(YYYDef)).toEqual(true);
+    expect(isInCache(ComponentDef)).toEqual(true);
+
+    MainDef.compile();
+
+    // Foo val before and after reapplication of Mixin2Ext
+    foo = FooDef.create();
+    expect(foo.val).toEqual("Foo Mixin2 Bar1 Bar Component");
+    Mixin2Ext.reapply();
+    foo = FooDef.create();
+    expect(foo.val).toEqual("Foo Mixin2Ext Mixin2 Bar1 Bar Component");
   });
 });
