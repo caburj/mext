@@ -1,11 +1,11 @@
 # mext.js
 
-The goal of this project is to provide a way to extend a class in-place. This
+The goal of this project is to provide a way to extend a class *in-place*. This
 has similarity to extension methods of other programming languages. This however
-relies on class inheritance. The main idea is to declare a class using
+relies on *class inheritance*. The main idea is to declare a class using
 `defclass` and declare its extensions/patches using `extend`. With this series
-of declaration, the compiled class (containing the base and its extensions) is
-'promised' thru `compile`. Look at the following for simple illustration:
+of declaration, we `compile` the definition to get the compiled class. Look at
+the following for simple illustration:
 
 ```js
 // app.js
@@ -30,13 +30,10 @@ const FooExt1 = extend(FooDef, (CompiledFoo) => {
   }
 })
 
-// It is now promised to have a class Foo in the registry that is extended.
-// We access this class thru `compile` of the definition which returns a
-// promise that resolves to the compiled class.
-FooDef.compile().then(Foo => {
-  const foo = new Foo();
-  console.log(foo.value); // logs 'foo1 -> foo'
-})
+// we can then compile the definition to get the class
+const Foo = FooDef.compile();
+const foo = new Foo();
+console.log(foo.value); // logs 'foo1 -> foo'
 ```
 
 In the example above, `FooDef` is the original declaration and `FooExt1` is the
@@ -45,7 +42,7 @@ extension. With these two, we are promised with a `class Foo` by `compiling`
 inheritance chain:
 
 ```
-class Foo = FooExt1 -> FooDef
+class Foo => FooExt1 -> FooDef
 ```
 
 Now, if we want to define a class that extends another class, for example, we
@@ -54,7 +51,7 @@ want to create `Bar` derived from `Foo` declared above, we can to the following:
 ```js
 // app.js continued
 
-// we ask the 'promised' class Foo by compiling the definition, then return a
+// we ask the class Foo by compiling the definition, then return a
 // class definition that extends it.
 export const BarDef = defclass(() => {
   const Foo = FooDef.compile();
@@ -68,7 +65,7 @@ export const BarDef = defclass(() => {
   }
 });
 
-// we can also extend Bar
+// we can also extend Bar in-place
 const BarExt1 = extend(BarDef, (Bar) => {
   return class extends Bar {
     get value() {
@@ -80,14 +77,13 @@ const BarExt1 = extend(BarDef, (Bar) => {
   }
 });
 
-BarDef.compile().then(Bar => {
-  const bar = new Bar();
-  console.log(bar.value); // logs 'bar1 -> bar -> foo1 -> foo'
-  console.log(bar.test()); // logs 'test1 -> test'
-})
+const Bar = BarDef.compile();
+const bar = new Bar();
+console.log(bar.value); // logs 'bar1 -> bar -> foo1 -> foo'
+console.log(bar.test()); // logs 'test1 -> test'
 ```
 
-In the listing above, `class Bar` is `promised` by `BarDef`, which is a subclass
+In the listing above, `class Bar` is compiled by `BarDef`, which is a subclass
 of `class Foo`. `Bar` is also extended using `BarExt1`, so we basically have the
 following as the inheritance chain of `class Bar`:
 
@@ -96,14 +92,14 @@ assigning
   [Bar] = class Bar
   [Foo] = class Foo
 then
-  [Bar] = BarExt1 -> BarDef -> [Foo]
-  [Bar] = BarExt1 -> BarDef -> FooExt1 -> FooDef
+  [Bar] => BarExt1 -> BarDef -> [Foo]
+  [Bar] => BarExt1 -> BarDef -> FooExt1 -> FooDef
 ```
 
 ## whenReady
 
 When all js files are loaded, that is the time that we can start asking for the
-'promised' classes from class definitions. The common practice is to have an
+compiled classes from class definitions. The common practice is to have an
 entry point which is run when the dom is ready, that entry point is normally the
 `class Main`.
 
@@ -197,6 +193,52 @@ It will now log:
 3                             (1) due to overriding of add in Utils
 bar1 -> bar -> foo1 -> foo
 added log from extension      (2) due to overriding of start in Main
+```
+
+## Removing/Reapplying Extensions
+
+Extensions can actually be removed or reapplied as illustrated in the following
+listing.
+
+```js
+const Bar = defclass(() => {
+  return class {
+    get val() {
+      return 'Bar';
+    }
+  };
+})
+
+const BarExt1 = extend(Bar, (Bar) => {
+  return class extends Bar {
+    get val() {
+      return 'Bar1 ' + super.val;
+    }
+  };
+})
+
+const BarExt2 = extend(Bar, (Bar) => {
+  return class extends Bar {
+    get val() {
+      return 'Bar2 ' + super.val;
+    }
+  };
+})
+
+let bar = Bar.create();
+console.log(bar.val); // logs 'Bar2 Bar1 Bar'
+
+// remove BarExt1
+BarExt1.remove();
+bar = Bar.create();
+console.log(bar.val); // logs 'Bar2 Bar'
+
+// let's remove BarExt2
+// then reapply BarExt1
+BarExt2.remove();
+BarExt1.reapply();
+bar = Bar.create();
+console.log(bar.val); // you guessed it, 'Bar1 Bar'
 ```
 
 ## Summary
