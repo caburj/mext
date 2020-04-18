@@ -439,12 +439,12 @@ describe("define", () => {
 
     // check inheritance tree after compiling FooDef and BazDef
     // They are compiled when create is called.
-    expect(FooDef.__parents__.size).toEqual(0);
-    expect(BazDef.__parents__.size).toEqual(0);
-    expect(Mixin2Def.__parents__.size).toEqual(1);
-    expect(ComponentDef.__parents__.size).toEqual(1);
-    expect(BarDef.__parents__.size).toEqual(2);
-    const barParents = [...BarDef.__parents__];
+    expect(FooDef.compilationParents.size).toEqual(0);
+    expect(BazDef.compilationParents.size).toEqual(0);
+    expect(Mixin2Def.compilationParents.size).toEqual(1);
+    expect(ComponentDef.compilationParents.size).toEqual(1);
+    expect(BarDef.compilationParents.size).toEqual(2);
+    const barParents = [...BarDef.compilationParents];
     expect(barParents[0]).toEqual(FooDef);
     expect(barParents[1]).toEqual(BazDef);
 
