@@ -571,4 +571,88 @@ describe("define", () => {
     foo = FooDef.create();
     expect(foo.val).toEqual("Foo Mixin2Ext Mixin2 Bar1 Bar Component");
   });
+
+  test("module definitions cache should also be invalidated", () => {
+    /**
+     * Module 🠖 Maths 🠖 Utils
+     *    🠗
+     * Helper
+     */
+    const Helper = defclass(() => {
+      return class {
+        magic(x) {
+          return x + 42;
+        }
+      };
+    });
+    const Utils = defclass(() => {
+      return class {
+        subOne(n) {
+          return n - 1;
+        }
+        addOne(n) {
+          return n + 1;
+        }
+      };
+    });
+    const Maths = defclass(() => {
+      return class extends Utils.compile() {
+        mul(a, b) {
+          return a * b;
+        }
+      };
+    });
+    const Module = defmodule(() => {
+      const maths = Maths.create();
+      const helper = Helper.create();
+      return { maths, helper };
+    });
+
+    let module = Module.compile();
+    // after Module compile, all the definitions should be in cache
+    expect(isInCache(Helper)).toEqual(true);
+    expect(isInCache(Utils)).toEqual(true);
+    expect(isInCache(Maths)).toEqual(true);
+    expect(isInCache(Module)).toEqual(true);
+
+    expect(module.helper.magic(10)).toEqual(52);
+
+    const HelperExt = extend(Helper, (Helper) => {
+      return class extends Helper {
+        magic(x) {
+          return super.magic(x) - 42;
+        }
+      };
+    });
+    // after extending Helper, cache should be invalidated
+    // for Helper and Module.
+    expect(isInCache(Helper)).toEqual(false);
+    expect(isInCache(Utils)).toEqual(true);
+    expect(isInCache(Maths)).toEqual(true);
+    expect(isInCache(Module)).toEqual(false);
+
+    // compile module an check the changes in Helper.magic
+    module = Module.compile();
+    expect(module.helper.magic(10)).toEqual(10);
+
+    // compile back to original, no Helper extension
+    HelperExt.remove();
+    module = Module.compile();
+
+    extend(Maths, (Maths) => {
+      return class extends Maths {
+        fact(n) {
+          return n === 0 ? 1 : n * this.fact(n - 1);
+        }
+      };
+    });
+    // after extending Maths, cache should be invalidated
+    // for Maths and Module.
+    expect(isInCache(Helper)).toEqual(true);
+    expect(isInCache(Utils)).toEqual(true);
+    expect(isInCache(Maths)).toEqual(false);
+    expect(isInCache(Module)).toEqual(false);
+    module = Module.compile();
+    expect(module.maths.fact(4)).toEqual(24);
+  });
 });

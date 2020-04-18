@@ -7,6 +7,7 @@ const mixinExtCBsMap = new Map();
 function invalidateCache(def) {
   mixinCache.delete(def.originalCB);
   classCache.delete(def.originalCB);
+  moduleCache.delete(def.originalCB);
   def._compiled = null;
   for (let parent of def.compilationParents) {
     invalidateCache(parent);
@@ -107,6 +108,22 @@ class MixinDefinition extends Definition {
   }
 }
 
+class ModuleDefinition extends Definition {
+  compile() {
+    this._updateParents();
+    if (moduleCache.has(this.originalCB)) {
+      compileStack.pop();
+      return moduleCache.get(this.originalCB);
+    } else {
+      const compiled = this.originalCB();
+      moduleCache.set(this.originalCB, compiled);
+      compileStack.pop();
+      this._compiled = compiled;
+      return compiled;
+    }
+  }
+}
+
 export function extend(onTopOf, callback) {
   if (!(onTopOf instanceof Array)) {
     onTopOf = [onTopOf];
@@ -168,17 +185,7 @@ export function defmixin(callback) {
 }
 
 export function defmodule(callback) {
-  return {
-    compile() {
-      if (moduleCache.has(callback)) {
-        return moduleCache.get(callback);
-      } else {
-        const compiled = callback();
-        moduleCache.set(callback, compiled);
-        return compiled;
-      }
-    },
-  };
+  return new ModuleDefinition(callback);
 }
 
 export function mix(compiledClass) {
