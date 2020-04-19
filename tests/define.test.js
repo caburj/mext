@@ -1,12 +1,4 @@
-import {
-  defclass,
-  defmodule,
-  extend,
-  reset,
-  defmixin,
-  mix,
-  isInCache,
-} from "../mext.js";
+import { defclass, defmodule, extend, reset, defmixin, mixWith } from "../mext.js";
 
 beforeEach(() => reset());
 
@@ -364,7 +356,7 @@ describe("define", () => {
           return "XXX";
         }
       };
-      return mix(XXX).with([MixinDef.compile()]);
+      return mixWith(XXX, [MixinDef.compile()]);
     });
 
     const BarDef = defclass(() => {
@@ -392,7 +384,7 @@ describe("define", () => {
     });
 
     const FooDef = defclass(() => {
-      return class extends mix(BarDef.compile()).with([Mixin2Def.compile()]) {
+      return class extends mixWith(BarDef.compile(), [Mixin2Def.compile()]) {
         get val() {
           return "Foo " + super.val;
         }
@@ -450,11 +442,11 @@ describe("define", () => {
 
     BarExt.remove();
 
-    expect(isInCache(FooDef)).toEqual(false);
-    expect(isInCache(BazDef)).toEqual(false);
-    expect(isInCache(Mixin2Def)).toEqual(true);
-    expect(isInCache(ComponentDef)).toEqual(true);
-    expect(isInCache(BarDef)).toEqual(false);
+    expect(FooDef.isInCache()).toEqual(false);
+    expect(BazDef.isInCache()).toEqual(false);
+    expect(Mixin2Def.isInCache()).toEqual(true);
+    expect(ComponentDef.isInCache()).toEqual(true);
+    expect(BarDef.isInCache()).toEqual(false);
 
     BarExt.reapply();
     let main = MainDef.create();
@@ -470,15 +462,15 @@ describe("define", () => {
       };
     });
     // check which are in cache.
-    expect(isInCache(MainDef)).toEqual(false);
-    expect(isInCache(XXXDef)).toEqual(true);
-    expect(isInCache(MixinDef)).toEqual(true);
-    expect(isInCache(FooDef)).toEqual(false);
-    expect(isInCache(Mixin2Def)).toEqual(false);
-    expect(isInCache(BarDef)).toEqual(true);
-    expect(isInCache(BazDef)).toEqual(true);
-    expect(isInCache(YYYDef)).toEqual(true);
-    expect(isInCache(ComponentDef)).toEqual(true);
+    expect(MainDef.isInCache()).toEqual(false);
+    expect(XXXDef.isInCache()).toEqual(true);
+    expect(MixinDef.isInCache()).toEqual(true);
+    expect(FooDef.isInCache()).toEqual(false);
+    expect(Mixin2Def.isInCache()).toEqual(false);
+    expect(BarDef.isInCache()).toEqual(true);
+    expect(BazDef.isInCache()).toEqual(true);
+    expect(YYYDef.isInCache()).toEqual(true);
+    expect(ComponentDef.isInCache()).toEqual(true);
 
     MainDef.compile(); // to cache again the classes
 
@@ -500,15 +492,15 @@ describe("define", () => {
 
     // check cache after couple of extensions
 
-    expect(isInCache(MainDef)).toEqual(false);
-    expect(isInCache(XXXDef)).toEqual(false);
-    expect(isInCache(MixinDef)).toEqual(false);
-    expect(isInCache(FooDef)).toEqual(false);
-    expect(isInCache(Mixin2Def)).toEqual(true);
-    expect(isInCache(BarDef)).toEqual(false);
-    expect(isInCache(BazDef)).toEqual(false);
-    expect(isInCache(YYYDef)).toEqual(false);
-    expect(isInCache(ComponentDef)).toEqual(false);
+    expect(MainDef.isInCache()).toEqual(false);
+    expect(XXXDef.isInCache()).toEqual(false);
+    expect(MixinDef.isInCache()).toEqual(false);
+    expect(FooDef.isInCache()).toEqual(false);
+    expect(Mixin2Def.isInCache()).toEqual(true);
+    expect(BarDef.isInCache()).toEqual(false);
+    expect(BazDef.isInCache()).toEqual(false);
+    expect(YYYDef.isInCache()).toEqual(false);
+    expect(ComponentDef.isInCache()).toEqual(false);
 
     MainDef.compile(); // to cache again the classes
 
@@ -521,29 +513,29 @@ describe("define", () => {
       };
     });
 
-    expect(isInCache(MainDef)).toEqual(false);
-    expect(isInCache(XXXDef)).toEqual(true);
-    expect(isInCache(MixinDef)).toEqual(true);
-    expect(isInCache(FooDef)).toEqual(true);
-    expect(isInCache(Mixin2Def)).toEqual(true);
-    expect(isInCache(BarDef)).toEqual(true);
-    expect(isInCache(BazDef)).toEqual(true);
-    expect(isInCache(YYYDef)).toEqual(true);
-    expect(isInCache(ComponentDef)).toEqual(true);
+    expect(MainDef.isInCache()).toEqual(false);
+    expect(XXXDef.isInCache()).toEqual(true);
+    expect(MixinDef.isInCache()).toEqual(true);
+    expect(FooDef.isInCache()).toEqual(true);
+    expect(Mixin2Def.isInCache()).toEqual(true);
+    expect(BarDef.isInCache()).toEqual(true);
+    expect(BazDef.isInCache()).toEqual(true);
+    expect(YYYDef.isInCache()).toEqual(true);
+    expect(ComponentDef.isInCache()).toEqual(true);
 
     MainDef.compile(); // to cache again the classes
 
     // what happens when ComponentExt is removed;
     ComponentExt.remove();
-    expect(isInCache(MainDef)).toEqual(false);
-    expect(isInCache(XXXDef)).toEqual(true);
-    expect(isInCache(MixinDef)).toEqual(true);
-    expect(isInCache(FooDef)).toEqual(false);
-    expect(isInCache(Mixin2Def)).toEqual(true);
-    expect(isInCache(BarDef)).toEqual(false);
-    expect(isInCache(BazDef)).toEqual(false);
-    expect(isInCache(YYYDef)).toEqual(false);
-    expect(isInCache(ComponentDef)).toEqual(false);
+    expect(MainDef.isInCache()).toEqual(false);
+    expect(XXXDef.isInCache()).toEqual(true);
+    expect(MixinDef.isInCache()).toEqual(true);
+    expect(FooDef.isInCache()).toEqual(false);
+    expect(Mixin2Def.isInCache()).toEqual(true);
+    expect(BarDef.isInCache()).toEqual(false);
+    expect(BazDef.isInCache()).toEqual(false);
+    expect(YYYDef.isInCache()).toEqual(false);
+    expect(ComponentDef.isInCache()).toEqual(false);
 
     MainDef.compile(); // to cache again the classes
 
@@ -552,15 +544,15 @@ describe("define", () => {
     Mixin2Ext.remove();
     MixinExt.remove();
     MainExt.remove();
-    expect(isInCache(MainDef)).toEqual(false);
-    expect(isInCache(XXXDef)).toEqual(false);
-    expect(isInCache(MixinDef)).toEqual(false);
-    expect(isInCache(FooDef)).toEqual(false);
-    expect(isInCache(Mixin2Def)).toEqual(false);
-    expect(isInCache(BarDef)).toEqual(true);
-    expect(isInCache(BazDef)).toEqual(true);
-    expect(isInCache(YYYDef)).toEqual(true);
-    expect(isInCache(ComponentDef)).toEqual(true);
+    expect(MainDef.isInCache()).toEqual(false);
+    expect(XXXDef.isInCache()).toEqual(false);
+    expect(MixinDef.isInCache()).toEqual(false);
+    expect(FooDef.isInCache()).toEqual(false);
+    expect(Mixin2Def.isInCache()).toEqual(false);
+    expect(BarDef.isInCache()).toEqual(true);
+    expect(BazDef.isInCache()).toEqual(true);
+    expect(YYYDef.isInCache()).toEqual(true);
+    expect(ComponentDef.isInCache()).toEqual(true);
 
     MainDef.compile();
 
@@ -610,10 +602,10 @@ describe("define", () => {
 
     let module = Module.compile();
     // after Module compile, all the definitions should be in cache
-    expect(isInCache(Helper)).toEqual(true);
-    expect(isInCache(Utils)).toEqual(true);
-    expect(isInCache(Maths)).toEqual(true);
-    expect(isInCache(Module)).toEqual(true);
+    expect(Helper.isInCache()).toEqual(true);
+    expect(Utils.isInCache()).toEqual(true);
+    expect(Maths.isInCache()).toEqual(true);
+    expect(Module.isInCache()).toEqual(true);
 
     expect(module.helper.magic(10)).toEqual(52);
 
@@ -626,10 +618,10 @@ describe("define", () => {
     });
     // after extending Helper, cache should be invalidated
     // for Helper and Module.
-    expect(isInCache(Helper)).toEqual(false);
-    expect(isInCache(Utils)).toEqual(true);
-    expect(isInCache(Maths)).toEqual(true);
-    expect(isInCache(Module)).toEqual(false);
+    expect(Helper.isInCache()).toEqual(false);
+    expect(Utils.isInCache()).toEqual(true);
+    expect(Maths.isInCache()).toEqual(true);
+    expect(Module.isInCache()).toEqual(false);
 
     // compile module an check the changes in Helper.magic
     module = Module.compile();
@@ -648,10 +640,10 @@ describe("define", () => {
     });
     // after extending Maths, cache should be invalidated
     // for Maths and Module.
-    expect(isInCache(Helper)).toEqual(true);
-    expect(isInCache(Utils)).toEqual(true);
-    expect(isInCache(Maths)).toEqual(false);
-    expect(isInCache(Module)).toEqual(false);
+    expect(Helper.isInCache()).toEqual(true);
+    expect(Utils.isInCache()).toEqual(true);
+    expect(Maths.isInCache()).toEqual(false);
+    expect(Module.isInCache()).toEqual(false);
     module = Module.compile();
     expect(module.maths.fact(4)).toEqual(24);
   });

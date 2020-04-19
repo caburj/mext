@@ -1,4 +1,4 @@
-import { extend, reset, defclass, defmixin, mix } from "../mext.js";
+import { extend, reset, defclass, defmixin, mixWith } from "../mext.js";
 
 beforeEach(() => reset());
 
@@ -11,7 +11,7 @@ describe("mixin", () => {
     }
     const Adef = defclass(() => {
       const SimpleMixin = SimpleMixinDef.compile();
-      return class extends mix(X).with([SimpleMixin]) {
+      return class extends mixWith(X, [SimpleMixin]) {
         foo() {
           return "foo " + super.foo();
         }
@@ -44,7 +44,7 @@ describe("mixin", () => {
     const BDef = defclass(() => {
       const A = ADef.compile();
       const Mixin = MixinDef.compile();
-      return class extends mix(A).with([Mixin]) {
+      return class extends mixWith(A, [Mixin]) {
         get foo() {
           return `B ${super.foo}`;
         }
@@ -89,7 +89,7 @@ describe("mixin", () => {
       const A = Adef.compile();
       const Mixin = MixinDef.compile();
       const OtherMixin = OtherMixinDef.compile();
-      return class extends mix(A).with([Mixin, OtherMixin]) {
+      return class extends mixWith(A, [Mixin, OtherMixin]) {
         foo() {
           return `B ${super.foo()}`;
         }

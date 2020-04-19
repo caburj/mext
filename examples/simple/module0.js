@@ -1,4 +1,4 @@
-import { defclass, whenReady, mix, defmixin } from "../../mext.js";
+import { defclass, whenReady, mixWith, defmixin } from "../../mext.js";
 
 export const Mixin = defmixin((toExtend) => {
   return class extends toExtend {
@@ -11,7 +11,7 @@ export const Mixin = defmixin((toExtend) => {
 export const Main = defclass(() => {
   const CompiledFoo = Foo.compile();
   const CompiledMixin = Mixin.compile();
-  return class extends mix(Object).with(CompiledMixin) {
+  return class extends mixWith(Object, CompiledMixin) {
     constructor() {
       super();
       console.log("Main");

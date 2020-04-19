@@ -1,43 +1,32 @@
-const classCache = new Map();
-const moduleCache = new Map();
-const mixinCache = new Map();
-const classExtCBsMap = new Map();
-const mixinExtCBsMap = new Map();
-
-function invalidateCache(def) {
-  mixinCache.delete(def.originalCB);
-  classCache.delete(def.originalCB);
-  moduleCache.delete(def.originalCB);
-  def._compiled = null;
-  for (let parent of def.compilationParents) {
-    invalidateCache(parent);
-  }
-  def.compilationParents.clear();
-}
-
-const compileStack = [];
-
 class Extension {
-  constructor(originDef, extensionCBArray, loc, callback) {
+  constructor(originDef, extensionCB) {
     this.originDef = originDef;
-    this.extensionCBArray = extensionCBArray;
-    this.loc = loc;
-    this.callback = callback;
-    invalidateCache(this.originDef);
+    this.extensionIndex = this.extensionCBArray.length;
+    this.extensionCB = extensionCB;
+    this.originDef.invalidateCache();
+    // Add the new extension callback to the extension array of the original definition
+    // we just push on top of the callback array. The import mechanism of
+    // javascript takes care of the order of these callbacks.
+    // The ones that are added first are applied first in the inheritance
+    // chain, the last one is at the very top of the chain.
+    this.extensionCBArray.push(extensionCB);
   }
   remove() {
-    this.extensionCBArray[this.loc] = false;
-    invalidateCache(this.originDef);
+    this.extensionCBArray[this.extensionIndex] = false;
+    this.originDef.invalidateCache();
   }
   reapply() {
-    this.extensionCBArray[this.loc] = this.callback;
-    invalidateCache(this.originDef);
+    this.extensionCBArray[this.extensionIndex] = this.extensionCB;
+    this.originDef.invalidateCache();
+  }
+  get extensionCBArray() {
+    return this.originDef.extensionCBArray;
   }
 }
 
 class Definition {
-  constructor(originalCB) {
-    this.originalCB = originalCB;
+  constructor(callback) {
+    this.extensionCBArray = [callback];
     // Parents are for class compilation.
     // They are the `definitions (class or mixin)` that when
     // compiled, calls compile to this definition.
@@ -50,6 +39,7 @@ class Definition {
     this.compilationParents = new Set([]);
   }
   _updateParents() {
+    const compileStack = this.constructor.compileStack;
     let top;
     if (compileStack.length !== 0) {
       top = compileStack[compileStack.length - 1];
@@ -59,24 +49,51 @@ class Definition {
       this.compilationParents.add(top);
     }
   }
-}
-
-class ClassDefinition extends Definition {
+  invalidateCache() {
+    this.constructor.cache.delete(this);
+    for (let def of this.compilationParents) {
+      def.invalidateCache();
+    }
+    this.compilationParents.clear();
+  }
+  isInCache() {
+    return this.constructor.cache.has(this);
+  }
   compile() {
+    const compileStack = this.constructor.compileStack;
+    const cache = this.constructor.cache;
     this._updateParents();
-    if (classCache.has(this.originalCB)) {
+    if (cache.has(this)) {
       compileStack.pop();
-      return classCache.get(this.originalCB);
+      return cache.get(this);
     } else {
-      const extensionCBs = classExtCBsMap.get(this.originalCB);
-      const compiled = extensionCBs
-        .filter(Boolean)
-        .reduce((acc, cb) => cb(acc), this.originalCB());
-      classCache.set(this.originalCB, compiled);
+      const compiled = this._compile();
+      cache.set(this, compiled);
       compileStack.pop();
-      this._compiled = compiled;
       return compiled;
     }
+  }
+  // This method is specific to the concrete class
+  // that subclasses this class.
+  _compile() {}
+}
+Definition.compileStack = [];
+
+class ClassDefinition extends Definition {
+  _compile() {
+    const [originalCB, ...extensionCBs] = this.extensionCBArray;
+    return extensionCBs
+      .filter(Boolean)
+      .reduce((acc, cb) => cb(acc), originalCB());
+  }
+  compile() {
+    const res = super.compile();
+    this._compiled = res;
+    return res;
+  }
+  invalidateCache() {
+    super.invalidateCache();
+    this._compiled = undefined;
   }
   create() {
     if (!this._compiled) {
@@ -86,48 +103,37 @@ class ClassDefinition extends Definition {
     return new this._compiled(...arguments);
   }
 }
+ClassDefinition.cache = new Map();
 
 class MixinDefinition extends Definition {
-  compile() {
-    this._updateParents();
-    if (mixinCache.has(this.originalCB)) {
-      compileStack.pop();
-      return mixinCache.get(this.originalCB);
-    } else {
-      const extensionCBs = mixinExtCBsMap.get(this.originalCB);
-      const compiled = function (toExtend) {
-        return extensionCBs
-          .filter(Boolean)
-          .reduce((acc, cb) => cb(acc), toExtend);
-      };
-      mixinCache.set(this.originalCB, compiled);
-      compileStack.pop();
-      this._compiled = compiled; // cache it
-      return compiled;
-    }
+  _compile() {
+    const extensionCBs = this.extensionCBArray;
+    return function (toExtend) {
+      return extensionCBs
+        .filter(Boolean)
+        .reduce((acc, cb) => cb(acc), toExtend);
+    };
   }
 }
+MixinDefinition.cache = new Map();
 
 class ModuleDefinition extends Definition {
-  compile() {
-    this._updateParents();
-    if (moduleCache.has(this.originalCB)) {
-      compileStack.pop();
-      return moduleCache.get(this.originalCB);
-    } else {
-      const compiled = this.originalCB();
-      moduleCache.set(this.originalCB, compiled);
-      compileStack.pop();
-      this._compiled = compiled;
-      return compiled;
-    }
+  constructor(callback) {
+    super(callback);
+    this.originalCB = callback;
+  }
+  _compile() {
+    return this.originalCB();
   }
 }
+ModuleDefinition.cache = new Map();
 
-export function extend(onTopOf, callback) {
+export function extend(onTopOf, extensionCB) {
   if (!(onTopOf instanceof Array)) {
     onTopOf = [onTopOf];
   }
+
+  // Determine the original definition.
   const [first, ...rest] = onTopOf;
   let originDef;
   if (first instanceof Definition) {
@@ -139,48 +145,32 @@ export function extend(onTopOf, callback) {
       "Only instances of 'Definition' or 'Extension' can be extended."
     );
   }
-  let extensionCBArray;
+
+  // All items in rest of onTopOf should have the same definition
+  // to the original definition (originDef).
   if (
-    rest.length === 0 ||
-    (rest.length &&
-      rest.every((item) => {
-        if (item instanceof Definition) {
-          return item.originalCB === originDef.originalCB;
-        } else if (item instanceof Extension) {
-          return item.originDef.originalCB === originDef.originalCB;
-        }
-      }))
+    rest.length &&
+    rest.some((item) => {
+      if (item instanceof Definition) {
+        return item !== originDef;
+      } else if (item instanceof Extension) {
+        return item.originDef !== originDef;
+      }
+    })
   ) {
-    if (classExtCBsMap.get(originDef.originalCB)) {
-      extensionCBArray = classExtCBsMap.get(originDef.originalCB);
-    } else if (mixinExtCBsMap.get(originDef.originalCB)) {
-      extensionCBArray = mixinExtCBsMap.get(originDef.originalCB);
-    }
-  } else {
     throw new Error(
       "If extending multiple extensions, they should all have the same 'originDef'."
     );
   }
-  // we just push on top of the callback array. The import mechanism of
-  // javascript takes care of the order of these callbacks.
-  // The ones that are added first are applied first in the inheritance
-  // chain, the last one is at the very top of the chain.
-  extensionCBArray.push(callback);
-  return new Extension(
-    originDef,
-    extensionCBArray,
-    extensionCBArray.length - 1,
-    callback
-  );
+
+  return new Extension(originDef, extensionCB);
 }
 
 export function defclass(callback) {
-  classExtCBsMap.set(callback, [callback]);
   return new ClassDefinition(callback);
 }
 
 export function defmixin(callback) {
-  mixinExtCBsMap.set(callback, [callback]);
   return new MixinDefinition(callback);
 }
 
@@ -188,26 +178,14 @@ export function defmodule(callback) {
   return new ModuleDefinition(callback);
 }
 
-export function mix(compiledClass) {
-  return {
-    with(compiledMixins) {
-      if (!(compiledMixins instanceof Array)) {
-        compiledMixins = [compiledMixins];
-      }
-      return compiledMixins.reduce((acc, cb) => cb(acc), compiledClass);
-    },
-  };
+export function mixWith(toExtend, compiledMixins) {
+  if (!(compiledMixins instanceof Array)) {
+    compiledMixins = [compiledMixins];
+  }
+  return compiledMixins.reduce((acc, cb) => cb(acc), toExtend);
 }
 
 // misc methods
-
-export function isInCache(def) {
-  return (
-    classCache.has(def.originalCB) ||
-    mixinCache.has(def.originalCB) ||
-    moduleCache.has(def.originalCB)
-  );
-}
 
 export function whenReady() {
   return new Promise((resolve) => {
@@ -218,9 +196,7 @@ export function whenReady() {
 }
 
 export function reset() {
-  classCache.clear();
-  moduleCache.clear();
-  mixinCache.clear();
-  classExtCBsMap.clear();
-  mixinExtCBsMap.clear();
+  ClassDefinition.cache.clear();
+  MixinDefinition.cache.clear();
+  ModuleDefinition.cache.clear();
 }

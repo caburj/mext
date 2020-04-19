@@ -1,4 +1,4 @@
-import { extend, defclass, defmodule, defmixin, mix } from "../../mext.js";
+import { extend, defclass, defmodule, defmixin, mixWith } from "../../mext.js";
 import { Main, Foo } from "./module0.js";
 
 export const Mixin2 = defmixin((toExtend) => {
@@ -21,7 +21,7 @@ export const M1Main = extend(Main, (Main) => {
 export const M1Foo = extend(Foo, (Foo) => {
   const { add } = helper.compile();
   const CompiledMixin2 = Mixin2.compile();
-  return class extends mix(Foo).with(CompiledMixin2) {
+  return class extends mixWith(Foo, CompiledMixin2) {
     foo() {
       super.foo();
       console.log(`foo 1, then [1+1=${add(1, 1)}]`);
