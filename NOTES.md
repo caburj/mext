@@ -42,6 +42,7 @@ without loading other modules and install only the dependencies. There will be
 separation between `all-modules-installed` and `only-this-module-installed`
 tests.
 
+- looks like this is possible if we track the compilation tree.
 
 **Adding types**
 

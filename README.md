@@ -9,9 +9,11 @@ the following for simple illustration:
 
 ```js
 // app.js
+
 import { defclass, extend } from './mext.js'
 
 // define class Foo
+// `defclass` takes a function that returns the real class
 export const FooDef = defclass(() => {
   return class {
     get value() {
@@ -21,7 +23,8 @@ export const FooDef = defclass(() => {
 });
 
 // extend class Foo
-// The argument of the callback is the compiled class to be extended.
+// `extend` takes the definition to extend, and a function
+// that returns the extended class.
 const FooExt1 = extend(FooDef, (CompiledFoo) => {
   return class extends CompiledFoo {
     get value() {
@@ -29,17 +32,21 @@ const FooExt1 = extend(FooDef, (CompiledFoo) => {
     }
   }
 })
+```
 
-// we can then compile the definition to get the class
+With the above declaration, we basically delayed the creation of `class Foo`. To
+get the real class, we call `compile` on the definition as illustrated below:
+
+```js
+// compile the definition to get class Foo
 const Foo = FooDef.compile();
 const foo = new Foo();
 console.log(foo.value); // logs 'foo1 -> foo'
 ```
 
-In the example above, `FooDef` is the original declaration and `FooExt1` is the
-extension. With these two, we are promised with a `class Foo` by `compiling`
-`FooDef`. In essence, we have `class Foo` equivalent to the following
-inheritance chain:
+`FooDef` is the definition and `FooExt1` is the extension. With these two, we
+are promised with a `class Foo` by `compiling` the definition (`FooDef`). In
+essence, we have `class Foo` equivalent to the following inheritance chain:
 
 ```
 class Foo => FooExt1 -> FooDef
@@ -76,16 +83,22 @@ const BarExt1 = extend(BarDef, (Bar) => {
     }
   }
 });
+```
 
+With the above declaration on top of the original declation, we can have the
+following:
+
+```js
 const Bar = BarDef.compile();
 const bar = new Bar();
 console.log(bar.value); // logs 'bar1 -> bar -> foo1 -> foo'
 console.log(bar.test()); // logs 'test1 -> test'
 ```
 
-In the listing above, `class Bar` is compiled by `BarDef`, which is a subclass
-of `class Foo`. `Bar` is also extended using `BarExt1`, so we basically have the
-following as the inheritance chain of `class Bar`:
+Notice that `class Foo` is compiled in `BarDef`, because we want the new
+`class Bar` to have `class Foo` as superclass. `class Bar` is also extended using
+`BarExt1`, so we basically have the following as the inheritance chain of
+`class Bar`:
 
 ```
 assigning
@@ -98,10 +111,13 @@ then
 
 ## whenReady
 
-When all js files are loaded, that is the time that we can start asking for the
-compiled classes from class definitions. The common practice is to have an
-entry point which is run when the dom is ready, that entry point is normally the
-`class Main`.
+When all js files are loaded, this is the best time to start asking for the
+compiled classes of the class definitions. The common practice is to have an
+entry point which is run when the dom is ready. We can assume that the entry
+point is the `class Main`.
+
+In the following listing, we define `class Main` then instantiate it when DOM is
+ready (when call to `whenReady` has resolved).
 
 ```js
 // app.js continued
@@ -131,7 +147,7 @@ const utilsDef = defmodule(() => {
   return new Utils();
 })
 
-// define class Utils to have add method.
+// define class Utils to have `add` method.
 export const UtilsDef = defclass(() => {
   return class {
     add(a, b) {
@@ -150,6 +166,11 @@ whenReady().then(() => {
 
 ## Extensions
 
+Normally, when we import something from a library, that import is only used
+(consumed), and is rarely added with new functionality because we are limited to
+adding methods to the prototype. However, when importing a class definition
+defined using `defclass`, not only we can consume it, but we can also extend it.
+
 This is where this patching pattern shines. When we load another file that
 contains extensions as illustrated in the listing below, we can basically alter
 the behavior of the app.
@@ -160,8 +181,7 @@ the behavior of the app.
 import { extend } from './mext.js';
 import { UtilsDef, MainDef } from './app.js';
 
-// alter add method of Utils
-// export this extension if we allow extensions that relies on this extension
+// alter the `add` method of Utils
 export const UtilsExt1 = extend(UtilsDef, (Utils) => {
   return class extends Utils {
     add(a, b) {
@@ -170,7 +190,7 @@ export const UtilsExt1 = extend(UtilsDef, (Utils) => {
   }
 });
 
-// alter start method of Main
+// alter the `start` method of Main
 const MainExt1 = extend(MainDef, (Main) => {
   return class extends Main {
     start() {
@@ -181,14 +201,14 @@ const MainExt1 = extend(MainDef, (Main) => {
 });
 ```
 
-When the above file is loaded together with the `app.js` file (except the
-module-level `.compile` calls), instead of logging the following:
+When the above file is loaded together with the `app.js` file, instead of
+seeing the following in the logs:
 
 ```
 2
 bar1 -> bar -> foo1 -> foo
 ```
-It will now log:
+We will see:
 ```
 3                             (1) due to overriding of add in Utils
 bar1 -> bar -> foo1 -> foo
@@ -243,16 +263,18 @@ console.log(bar.val); // you guessed it, 'Bar1 Bar'
 
 ## Summary
 
-Loading the listings above will generate the following classes:
+Loading `app.js` and `extensions.js` from the listings above will generate the
+following classes:
 
 ```
-[Foo] = FooExt1 -> FooDef
-[Bar] = BarExt1 -> BarDef -> [Foo]
-[Utils] = UtilsExt1 -> UtilsDef
-[Main] = MainExt1 -> MainDef
+[Foo] => FooExt1 -> FooDef
+[Bar] => BarExt1 -> BarDef -> [Foo]
+      => BarExt1 -> BarDef -> FooExt1 -> FooDef
+[Utils] => UtilsExt1 -> UtilsDef
+[Main] => MainExt1 -> MainDef
 ```
 
-And if we loaded the following listing:
+And again, if we loaded the following as well:
 
 ```js
 const FooExt2 = extend(FooDef, (Foo) => {
@@ -262,6 +284,8 @@ const FooExt2 = extend(FooDef, (Foo) => {
 `class Foo` and `class Bar` becomes:
 
 ```
-[Foo] = FooExt2 -> FooExt2 -> FooDef
-[Bar] = BarExt1 -> BarDef -> FooExt2 -> FooExt2 -> FooDef
+[Foo] => FooExt2 -> FooExt2 -> FooDef
+[Bar] => BarExt1 -> BarDef -> FooExt2 -> FooExt2 -> FooDef
 ```
+
+Notice how the new extension fits itself in the inheritance chain.
